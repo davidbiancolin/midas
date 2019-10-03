@@ -69,6 +69,7 @@ private[midas] class MidasTransforms(
       new fame.InferModelPorts,
       new EmitFirrtl("post-channel-excision.fir"),
       new fame.FAMETransform,
+      new EnsureDefined(AbstractClockGate),
       new EmitFirrtl("post-fame-transform.fir"),
       new ResolveAndCheck,
       new fame.EmitAndWrapRAMModels,

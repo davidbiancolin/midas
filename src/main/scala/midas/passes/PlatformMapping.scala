@@ -77,7 +77,8 @@ private[passes] class PlatformMapping(
     val chirrtl = Parser.parse(chisel3.Driver.emit(shimCircuit))
     val shimAnnos = shimCircuit.annotations.map(_.toFirrtl)
     val transforms = Seq(new Fame1Instances,
-                         new PreLinkRenaming(Namespace(c.circuit)))
+                         new PreLinkRenaming(Namespace(c.circuit)),
+                         xilinx.HostSpecialization)
     val shimCircuitState = new LowFirrtlCompiler().compile(CircuitState(chirrtl, ChirrtlForm, shimAnnos), transforms)
 
     // Rename the annotations from the inner module, which are using an obselete CircuitName

@@ -22,6 +22,7 @@ override VCS_FLAGS := -quiet -timescale=1ns/1ps +v2k +rad +vcs+initreg+random +v
 	+define+RANDOMIZE_INVALID_ASSIGN \
 	+define+STOP_COND=!$(TB).reset \
 	+define+PRINTF_COND=!$(TB).reset \
+        -f $(OUT_DIR)/firrtl_black_box_resource_files.f \
 	$(VCS_FLAGS)
 
 vcs_v := $(emul_v) $(vcs_wrapper_v)

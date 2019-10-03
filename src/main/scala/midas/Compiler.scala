@@ -58,6 +58,7 @@ object MidasCompiler {
      (implicit p: Parameters): CircuitState = {
     val midasAnnos = Seq(
       firrtl.TargetDirAnnotation(dir.getPath()),
+      firrtl.transforms.BlackBoxTargetDirAnno(dir.getPath()),
       InferReadWriteAnnotation)
     val midasTransforms = new passes.MidasTransforms(io)(p alterPartial { case OutputDir => dir })
     val compiler = new MidasCompiler

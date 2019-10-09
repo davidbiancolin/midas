@@ -16,11 +16,11 @@ package object xilinx {
     "BUFGCE",
     Nil)
 
-  object DefineBUFGCE extends Transform with NoAnalysis with UnchangedAnnotations {
+  object DefineBUFGCE extends Transform with NoAnalysisPass {
     val transformer = { c: Circuit => c.copy(modules = c.modules :+ BUFGCE) }
   }
 
-  object ReplaceAbstractClockBuffers extends Transform with NoAnalysis with UnchangedAnnotations {
+  object ReplaceAbstractClockBuffers extends Transform with NoAnalysisPass {
     val transformer = StatementTransformer {
       case wi: WDefInstance if wi.module == DefineAbstractClockGate.blackbox.name =>
         wi.copy(module = BUFGCE.name)

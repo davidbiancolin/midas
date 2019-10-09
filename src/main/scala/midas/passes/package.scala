@@ -137,20 +137,15 @@ package object passes {
     }
   }
 
-  trait NoAnalysis extends FunctionalPass[Unit] {
+  trait NoAnalysisPass extends FunctionalPass[Unit] {
     final def analyze(cs: CircuitState): Unit = ()
     final def transformer(analysis: Unit): Circuit => Circuit = transformer
     final def annotater(analysis: Unit): AnnotationSeq => AnnotationSeq = annotater
     final override def renamer(analysis: Unit): Option[RenameMap] = renamer
 
     val transformer: Circuit => Circuit
-    val annotater: AnnotationSeq => AnnotationSeq
+    val annotater: AnnotationSeq => AnnotationSeq = identity[AnnotationSeq](_)
     def renamer: Option[RenameMap] = None
   }
 
-  trait UnchangedAnnotations {
-    this: FunctionalPass[_]
-    override def annotater(analysis: Any): AnnotationSeq => AnnotationSeq = identity[AnnotationSeq](_)
-    val annotater: AnnotationSeq => AnnotationSeq = identity[AnnotationSeq](_)
-  }
 }

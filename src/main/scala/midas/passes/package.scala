@@ -9,6 +9,7 @@ import firrtl.WrappedExpression._
 import annotations._
 import TargetToken.{Instance, OfModule}
 import firrtl.Utils.BoolType
+import firrtl.transforms.BlackBoxInlineAnno
 
 import scala.language.implicitConversions
 
@@ -33,7 +34,7 @@ package object passes {
   }
 
   object InstanceInfo {
-    def apply(m: Module)(implicit ns: Namespace): InstanceInfo = {
+    def apply(m: DefModule)(implicit ns: Namespace): InstanceInfo = {
       val inst = fame.Instantiate(m, ns.newName(m.name))
       InstanceInfo(inst, Block(Nil), WRef(inst))
     }
@@ -51,24 +52,38 @@ package object passes {
     }
   }
 
+  object DefineAbstractClockGate extends Transform with FunctionalPass[CircuitName] {
 
-  val AbstractClockGate = Module(
-    info = NoInfo,
-    name = "AbstractClockGate",
-    ports =  Seq(
-      Port(NoInfo, "I", Input, ClockType),
-      Port(NoInfo, "CE", Input, BoolType),
-      Port(NoInfo, "O", Output, ClockType)),
-    body = Connect(
-      NoInfo,
-      WRef("O", ClockType, PortKind, FEMALE),
-      DoPrim(PrimOps.AsClock, Seq(
-        DoPrim(PrimOps.And, Seq(
-          DoPrim(PrimOps.AsUInt, Seq(WRef("I", ClockType, PortKind, MALE)), Nil, BoolType),
-          WRef("CE", BoolType, PortKind, MALE)
-        ), Nil, BoolType)
-      ), Nil, ClockType)))
+    val bbName = "AbstractClockGate"
+    val blackbox = ExtModule(
+      info = NoInfo,
+      name = bbName,
+      ports =  Seq(
+        Port(NoInfo, "I", Input, ClockType),
+        Port(NoInfo, "CE", Input, BoolType),
+        Port(NoInfo, "O", Output, ClockType)),
+      defname = bbName,
+      params = Nil)
 
+    val impl =
+      """module AbstractClockGate(
+         |  input      I,
+         |  input      CE,
+         |  output reg O
+         |);
+         |  reg enable;
+         |  always @(I or CE)
+         |  if (~I)
+         |    enable <= CE;
+         |  assign O = (I & enable);
+         |endmodule""".stripMargin
+
+    def analyze(cs: CircuitState): CircuitName = CircuitName(cs.circuit.main)
+    def transformer(cName: CircuitName) = { c: Circuit => c.copy(modules = c.modules :+ blackbox) }
+    def annotater(cName: CircuitName) = {
+      anns: AnnotationSeq => anns :+ BlackBoxInlineAnno(ModuleName(bbName, cName), bbName, impl)
+    }
+  }
 
   object OrElseIdentity {
     def apply[T](f: PartialFunction[T, T]): T => T = {
@@ -100,28 +115,42 @@ package object passes {
     def apply(repls: ReplMap)(s: Statement): Statement = s map apply(repls) map onExpr(repls)
   }
 
-  trait AnyFormPass {
-    final val inputForm: CircuitForm = UnknownForm
-    final val outputForm: CircuitForm = UnknownForm
-    def run(c: Circuit): Circuit
-    final def execute(state: CircuitState): CircuitState = state.copy(circuit = run(state.circuit))
-  }
+  trait FunctionalPass[T] {
+    def inputForm: CircuitForm = UnknownForm
+    def outputForm: CircuitForm = UnknownForm
+    def updateForm(i: CircuitForm): CircuitForm = outputForm match {
+      case UnknownForm => i
+      case _ => outputForm
+    }
 
-  trait FunctionalPass {
-    val transformer: Circuit => Circuit
-    def run(c: Circuit): Circuit = transformer(c)
-  }
+    def analyze(cs: CircuitState): T
+    def preTransformCheck(analysis: T): Unit = ()
+    def transformer(analysis: T): Circuit => Circuit
+    def annotater(analysis: T): AnnotationSeq => AnnotationSeq
+    def renamer(analysis: T): Option[RenameMap] = None
 
-  class EnsureDefined(m: DefModule) extends Transform with AnyFormPass {
-    def run(c: Circuit): Circuit = {
-      val moduleMap = c.modules.view.map({ m => m.name -> m }).toMap
-      require(moduleMap.getOrElse(m.name, m) == m, s"EnsureDefined encountered conflicting definition of ${m.name}")
-      if (moduleMap.contains(m.name)) {
-        c
-      } else {
-        c.copy(modules = c.modules :+ m)
-      } 
+    final def execute(input: CircuitState): CircuitState = {
+      val analysis = analyze(input)
+      val outputCircuit = transformer(analysis)(input.circuit)
+      val outputAnnos = annotater(analysis)(input.annotations)
+      CircuitState(outputCircuit, updateForm(input.form), outputAnnos, renamer(analysis))
     }
   }
 
+  trait NoAnalysis extends FunctionalPass[Unit] {
+    final def analyze(cs: CircuitState): Unit = ()
+    final def transformer(analysis: Unit): Circuit => Circuit = transformer
+    final def annotater(analysis: Unit): AnnotationSeq => AnnotationSeq = annotater
+    final override def renamer(analysis: Unit): Option[RenameMap] = renamer
+
+    val transformer: Circuit => Circuit
+    val annotater: AnnotationSeq => AnnotationSeq
+    def renamer: Option[RenameMap] = None
+  }
+
+  trait UnchangedAnnotations {
+    this: FunctionalPass[_]
+    override def annotater(analysis: Any): AnnotationSeq => AnnotationSeq = identity[AnnotationSeq](_)
+    val annotater: AnnotationSeq => AnnotationSeq = identity[AnnotationSeq](_)
+  }
 }

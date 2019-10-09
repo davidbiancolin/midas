@@ -88,6 +88,12 @@ emul_h     := $(driver_h) $(endpoint_h)  $( $(addprefix $(midas_dir)/, $(addsuff
 emul_cc    := $(DRIVER) $(endpoint_cc) $(addprefix $(midas_dir)/, $(addsuffix .cc, $(emul_files) sample/simif_sample)) $(lib)
 emul_v     := $(design_vh) $(design_v)
 
+# Blackbox resources
+firrtl_bb_resources := $(GEN_DIR)/firrtl_black_box_resource_files.f
+sim_bb_resources    := $(GEN_DIR)/sim_black_box_resource_files.f
+$(sim_bb_resources): $(design_v)
+	grep -hs ^ $(firrtl_bb_resources) > $@ || :
+
 # The lop level module must be called out for verilator
 ifeq ($(PLATFORM),zynq)
 top_module = ZynqShim

@@ -143,7 +143,7 @@ object FAMEModuleTransformer {
 
     val gateTargetClock = analysis.containsSyncBlackboxes(m)
     val targetClock = if (gateTargetClock) {
-      val buf = InstanceInfo(AbstractClockGate).connect("I", WRef(hostClock)).connect("CE", WRef(finishing))
+      val buf = InstanceInfo(DefineAbstractClockGate.blackbox).connect("I", WRef(hostClock)).connect("CE", WRef(finishing))
       SignalInfo(buf.decl, buf.assigns, WSubField(buf.ref, "O", ClockType, MALE))
     } else {
       PassThru(WRef(hostClock), "target_clock")

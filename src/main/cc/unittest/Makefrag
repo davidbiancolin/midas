@@ -42,6 +42,12 @@ verilog: $(GEN_DIR)/$(DESIGN).v
 #sim_vsrcs = \
 #    $(bb_vsrcs)
 
+# Blackbox resources
+firrtl_bb_resources := $(GEN_DIR)/firrtl_black_box_resource_files.f
+sim_bb_resources    := $(GEN_DIR)/sim_black_box_resource_files.f
+$(sim_bb_resources): $(design_v)
+	grep -hs ^ $(firrtl_bb_resources) > $@ || :
+
 emul_v     := $(GEN_DIR)/$(DESIGN).v #$(sim_vsrcs)
 emul_h     :=
 emul_cc    :=
